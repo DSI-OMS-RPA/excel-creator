@@ -1,6 +1,6 @@
 import openpyxl
 from openpyxl.utils import get_column_letter
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.formatting.rule import ColorScaleRule, FormulaRule
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.chart.label import DataLabelList
@@ -9,6 +9,7 @@ from openpyxl.drawing.image import Image
 import csv
 import json
 import os
+import logging
 
 class ExcelCreator:
     """
@@ -51,6 +52,10 @@ class ExcelCreator:
 
         # Activate the first sheet by default
         self.sheet = self.workbook.active
+
+        # Set up logging
+        logging.basicConfig(filename='excel_creator.log', level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
 
     def set_sheet_name(self, name):
         """
@@ -338,8 +343,163 @@ class ExcelCreator:
             for cell in self.sheet[row]:
                 cell.fill = fill_color
 
+    def apply_cell_style(self, cell_range, font=None, fill=None, border=None, alignment=None):
+        """
+        Apply custom styles to a cell or range of cells.
+
+        Parameters:
+        - cell_range (str): The cell or range to apply styles to (e.g., "A1" or "A1:B10").
+        - font (Font, optional): Custom font style.
+        - fill (PatternFill, optional): Custom fill style.
+        - border (Border, optional): Custom border style.
+        - alignment (Alignment, optional): Custom alignment style.
+        """
+        try:
+            for row in self.sheet[cell_range]:
+                for cell in row:
+                    if font:
+                        cell.font = font
+                    if fill:
+                        cell.fill = fill
+                    if border:
+                        cell.border = border
+                    if alignment:
+                        cell.alignment = alignment
+            self.logger.info(f"Applied custom style to range: {cell_range}")
+        except Exception as e:
+            self.logger.error(f"Error applying cell style: {str(e)}")
+
+    def apply_formula(self, cell_range, formula):
+        """
+        Apply a formula to a cell or range of cells.
+
+        Parameters:
+        - cell_range (str): The cell or range to apply the formula to (e.g., "A1" or "A1:A10").
+        - formula (str): The formula to apply (e.g., "=SUM(B1:B10)").
+        """
+        try:
+            for row in self.sheet[cell_range]:
+                for cell in row:
+                    cell.value = formula
+            self.logger.info(f"Applied formula '{formula}' to range: {cell_range}")
+        except Exception as e:
+            self.logger.error(f"Error applying formula: {str(e)}")
+
+    def create_named_range(self, name, cell_range):
+        """
+        Create a named range in the workbook.
+
+        Parameters:
+        - name (str): The name for the range.
+        - cell_range (str): The cell range for the named range (e.g., "A1:B10").
+        """
+        try:
+            self.workbook.create_named_range(name, self.sheet, cell_range)
+            self.logger.info(f"Created named range '{name}' for range: {cell_range}")
+        except Exception as e:
+            self.logger.error(f"Error creating named range: {str(e)}")
+
+    def copy_sheet(self, source_sheet_name, new_sheet_name):
+        """
+        Copy a sheet within the workbook.
+
+        Parameters:
+        - source_sheet_name (str): The name of the sheet to copy.
+        - new_sheet_name (str): The name for the new sheet.
+        """
+        try:
+            source_sheet = self.workbook[source_sheet_name]
+            new_sheet = self.workbook.copy_worksheet(source_sheet)
+            new_sheet.title = new_sheet_name
+            self.logger.info(f"Copied sheet '{source_sheet_name}' to '{new_sheet_name}'")
+        except Exception as e:
+            self.logger.error(f"Error copying sheet: {str(e)}")
+
+    def add_cell_comment(self, cell, comment_text, author="ExcelCreator"):
+        """
+        Add a comment to a cell.
+
+        Parameters:
+        - cell (str): The cell to add the comment to (e.g., "A1").
+        - comment_text (str): The text of the comment.
+        - author (str, optional): The author of the comment.
+        """
+        try:
+            self.sheet[cell].comment = openpyxl.comments.Comment(comment_text, author)
+            self.logger.info(f"Added comment to cell {cell}")
+        except Exception as e:
+            self.logger.error(f"Error adding cell comment: {str(e)}")
+
+    def set_page_setup(self, orientation="portrait", paper_size=9, fit_to_page=False):
+        """
+        Set up page layout for printing.
+
+        Parameters:
+        - orientation (str): Page orientation ("portrait" or "landscape").
+        - paper_size (int): Paper size (9 for A4, 1 for Letter, etc.).
+        - fit_to_page (bool): Whether to fit the content to one page.
+        """
+        try:
+            self.sheet.page_setup.orientation = orientation
+            self.sheet.page_setup.paperSize = paper_size
+            if fit_to_page:
+                self.sheet.page_setup.fitToPage = True
+                self.sheet.page_setup.fitToHeight = 1
+                self.sheet.page_setup.fitToWidth = 1
+            self.logger.info("Set page setup")
+        except Exception as e:
+            self.logger.error(f"Error setting page setup: {str(e)}")
+
+    def create_pivot_table(self, source_data, pivot_table_range, rows, cols, values):
+        """
+        Create a pivot table.
+
+        Parameters:
+        - source_data (str): The range containing the source data (e.g., "A1:D100").
+        - pivot_table_range (str): The cell where the pivot table should start (e.g., "G1").
+        - rows (list): Fields to use for row labels.
+        - cols (list): Fields to use for column labels.
+        - values (list): Fields to summarize in the pivot table.
+        """
+        try:
+            pivot_sheet = self.workbook.create_sheet("PivotTable")
+            pivot_sheet.sheet_view.showGridLines = False
+
+            data_sheet = self.sheet
+            pc = openpyxl.pivot.cache.CacheDefinition(cacheSource=f"'{data_sheet.title}'!{source_data}")
+            pt = openpyxl.pivot.table.PivotTable(name="PivotTable1", cache=pc)
+
+            for row in rows:
+                pt.add_rows(row)
+            for col in cols:
+                pt.add_columns(col)
+            for val in values:
+                pt.add_data(val)
+
+            pivot_sheet.add_pivot_table(pt, pivot_table_range)
+            self.logger.info(f"Created pivot table in range: {pivot_table_range}")
+        except Exception as e:
+            self.logger.error(f"Error creating pivot table: {str(e)}")
+
+    def apply_autofilter(self, cell_range):
+        """
+        Apply AutoFilter to a range of cells.
+
+        Parameters:
+        - cell_range (str): The range to apply AutoFilter to (e.g., "A1:D10").
+        """
+        try:
+            self.sheet.auto_filter.ref = cell_range
+            self.logger.info(f"Applied AutoFilter to range: {cell_range}")
+        except Exception as e:
+            self.logger.error(f"Error applying AutoFilter: {str(e)}")
+
     def save(self):
         """
         Save the Excel workbook to the specified file.
         """
-        self.workbook.save(self.file_name)
+        try:
+            self.workbook.save(self.file_name)
+            self.logger.info(f"Workbook saved successfully: {self.file_name}")
+        except Exception as e:
+            self.logger.error(f"Error saving workbook: {str(e)}")
