@@ -1,6 +1,6 @@
 
 from excel_creator import ExcelCreator
-from openpyxl.styles import Font
+from openpyxl.styles import Font, PatternFill
 
 # Example usage
 if __name__ == "__main__":
@@ -53,11 +53,20 @@ if __name__ == "__main__":
     # Apply zebra striping
     excel_creator.apply_zebra_striping(start_row=2, end_row=i)
 
+    # Apply a filter to the data
+    excel_creator.apply_cell_style("A1:C1", font=Font(bold=True), fill=PatternFill(start_color="AAAAAA", end_color="AAAAAA", fill_type="solid"))
+
     # Auto-number the rows in the first column
     excel_creator.auto_number_rows(start_row=2, column=1)
 
-    # Apply conditional formatting (color scale) to the 'TOTAL' column
+    # Add a comment to a cell
+    excel_creator.add_cell_comment("A1", "This is the name column")
+
+    # Apply conditional formatting
     excel_creator.apply_conditional_formatting("K2:K3", min_color="FFCCCC", max_color="00FF00")
+
+    # Apply a formula to the 'DATA_PAGAMENTO' column
+    excel_creator.apply_formula("D2:D3", "=B2*2")
 
     # Add data validation (drop-down list) to the 'METODO_PAGAMENTO' column
     payment_methods = '"Cartao,Dinheiro"'
@@ -69,14 +78,20 @@ if __name__ == "__main__":
     # Freeze the first row (headers) and first column
     excel_creator.freeze_panes("B2")
 
+    # Set the page orientation to landscape
+    excel_creator.set_page_setup(orientation="landscape")
+
+    # Apply an autofilter
+    excel_creator.apply_autofilter("A1:C3")
+
     # Add a chart (Creating a bar chart with data labels and a custom title)
     excel_creator.create_chart(
-        min_col=2, min_row=2, max_col=5, max_row=10,
+        min_col=9, min_row=1, max_col=11, max_row=3,  # Adjusted to match your actual data
         chart_type="bar",
-        title="Sales Data",
-        x_axis_title="Products",
-        y_axis_title="Sales",
-        position="H10",
+        title="Price, Tax, and Discount Comparison",
+        x_axis_title="Category",
+        y_axis_title="Amount",
+        position="H10",  # Moved to give more space for your data
         include_legend=True,
         show_data_labels=True
     )

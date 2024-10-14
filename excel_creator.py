@@ -4,7 +4,8 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.formatting.rule import ColorScaleRule, FormulaRule
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.chart.label import DataLabelList
-from openpyxl.chart import BarChart, LineChart, PieChart, ScatterChart, Reference, Series
+from openpyxl.chart.legend import Legend
+from openpyxl.chart import BarChart, LineChart, PieChart, ScatterChart, Reference
 from openpyxl.drawing.image import Image
 import csv
 import json
@@ -230,45 +231,53 @@ class ExcelCreator:
         - include_legend (bool): Whether to include a legend. Default is True.
         - show_data_labels (bool): Whether to show data labels on the chart. Default is False.
         """
+        try:
+            # Select the data for the chart
+            data = Reference(self.sheet, min_col=min_col, min_row=min_row, max_col=max_col, max_row=max_row)
 
-        # Select the data for the chart
-        data = Reference(self.sheet, min_col=min_col, min_row=min_row, max_col=max_col, max_row=max_row)
+            # Create the chart based on the chart_type parameter
+            if chart_type == "bar":
+                chart = BarChart()
+            elif chart_type == "line":
+                chart = LineChart()
+            elif chart_type == "pie":
+                chart = PieChart()
+            elif chart_type == "scatter":
+                chart = ScatterChart()
+            else:
+                raise ValueError(f"Unsupported chart type: {chart_type}")
 
-        # Create the chart based on the chart_type parameter
-        if chart_type == "bar":
-            chart = BarChart()
-        elif chart_type == "line":
-            chart = LineChart()
-        elif chart_type == "pie":
-            chart = PieChart()
-        elif chart_type == "scatter":
-            chart = ScatterChart()
-        else:
-            raise ValueError(f"Unsupported chart type: {chart_type}")
+            # Add the data to the chart
+            chart.add_data(data, titles_from_data=True)
 
-        # Add the data to the chart
-        chart.add_data(data, titles_from_data=True)
+            # Set the chart title if provided
+            if title:
+                chart.title = title
 
-        # Set the chart title if provided
-        if title:
-            chart.title = title
+            # Set axis titles if provided
+            if x_axis_title:
+                chart.x_axis.title = x_axis_title
+            if y_axis_title:
+                chart.y_axis.title = y_axis_title
 
-        # Set axis titles if provided
-        if x_axis_title:
-            chart.x_axis.title = x_axis_title
-        if y_axis_title:
-            chart.y_axis.title = y_axis_title
+            # Handle legend
+            if include_legend:
+                chart.legend = Legend()
+            else:
+                chart.legend = None
 
-        # Show or hide the legend
-        chart.legend = include_legend
+            # Show data labels if specified
+            if show_data_labels:
+                chart.dataLabels = DataLabelList()
+                chart.dataLabels.showVal = True
 
-        # Show data labels if specified
-        if show_data_labels:
-            chart.dataLabels = DataLabelList()
-            chart.dataLabels.showVal = True
+            # Add the chart to the sheet at the specified position
+            self.sheet.add_chart(chart, position)
 
-        # Add the chart to the sheet at the specified position
-        self.sheet.add_chart(chart, position)
+            self.logger.info(f"Created {chart_type} chart at position {position}")
+        except Exception as e:
+            self.logger.error(f"Error creating chart: {str(e)}")
+            raise
 
     def import_from_csv(self, csv_file, start_row=1):
         """
